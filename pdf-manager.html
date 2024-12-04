@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 引入 PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -49,10 +51,15 @@
         }
         #pdfViewer {
             width: 100%;
-            height: 500px;
-            border: 1px solid #ddd;
             margin-top: 20px;
-            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .pdf-canvas {
+            max-width: 100%;
+            margin: 10px auto;
+            display: block;
         }
         .saved-ids {
             margin-top: 20px;
@@ -74,6 +81,28 @@
         .success {
             color: green;
             margin-top: 10px;
+        }
+        .page-controls {
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        #pageNum {
+            margin: 0 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px auto;
         }
     </style>
 </head>
@@ -100,23 +129,35 @@
         <div id="savedIds" class="saved-ids"></div>
         
         <!-- PDF 瀏覽器 -->
-        <div id="pdfViewer"></div>
+        <div id="pdfViewer">
+            <div class="page-controls">
+                <button id="prev">上一頁</button>
+                <span id="pageNum"></span>
+                <button id="next">下一頁</button>
+                <button id="zoomIn">放大</button>
+                <button id="zoomOut">縮小</button>
+            </div>
+            <div id="canvasContainer"></div>
+        </div>
     </div>
 
     <script>
+        // 設定 PDF.js 路徑
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
         class PDFManager {
             constructor() {
                 this.storage = window.localStorage;
                 this.currentPdfData = null;
+                this.pdfDoc = null;
+                this.pageNum = 1;
+                this.scale = 1.0;
+                this.loading = false;
             }
 
-            // 儲存PDF
-            savePDF(id, pdfData) {
+            async savePDF(id, pdfData) {
                 try {
-                    // 儲存PDF數據
                     this.storage.setItem(`pdf_${id}`, pdfData);
-                    
-                    // 更新ID列表
                     let ids = this.getSavedIds();
                     if (!ids.includes(id)) {
                         ids.push(id);
@@ -129,18 +170,15 @@
                 }
             }
 
-            // 讀取PDF
             getPDF(id) {
                 return this.storage.getItem(`pdf_${id}`);
             }
 
-            // 獲取所有已儲存的ID
             getSavedIds() {
                 const ids = this.storage.getItem('pdf_ids');
                 return ids ? JSON.parse(ids) : [];
             }
 
-            // 刪除PDF
             deletePDF(id) {
                 try {
                     this.storage.removeItem(`pdf_${id}`);
@@ -153,11 +191,68 @@
                     return false;
                 }
             }
+
+            async renderPage() {
+                if (!this.pdfDoc || this.loading) return;
+                this.loading = true;
+                
+                try {
+                    const page = await this.pdfDoc.getPage(this.pageNum);
+                    const viewport = page.getViewport({ scale: this.scale });
+
+                    const container = document.getElementById('canvasContainer');
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'pdf-canvas';
+                    const context = canvas.getContext('2d');
+
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    // 清除之前的內容
+                    container.innerHTML = '';
+                    container.appendChild(canvas);
+
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
+
+                    document.getElementById('pageNum').textContent = 
+                        `頁數: ${this.pageNum} / ${this.pdfDoc.numPages}`;
+                } catch (error) {
+                    console.error('渲染PDF頁面時發生錯誤:', error);
+                    showMessage('顯示PDF時發生錯誤', 'error');
+                } finally {
+                    this.loading = false;
+                }
+            }
         }
 
         const pdfManager = new PDFManager();
 
-        // 上傳PDF
+        // 初始化按鈕事件
+        document.getElementById('prev').addEventListener('click', async () => {
+            if (pdfManager.pageNum <= 1) return;
+            pdfManager.pageNum--;
+            await pdfManager.renderPage();
+        });
+
+        document.getElementById('next').addEventListener('click', async () => {
+            if (!pdfManager.pdfDoc || pdfManager.pageNum >= pdfManager.pdfDoc.numPages) return;
+            pdfManager.pageNum++;
+            await pdfManager.renderPage();
+        });
+
+        document.getElementById('zoomIn').addEventListener('click', async () => {
+            pdfManager.scale *= 1.2;
+            await pdfManager.renderPage();
+        });
+
+        document.getElementById('zoomOut').addEventListener('click', async () => {
+            pdfManager.scale *= 0.8;
+            await pdfManager.renderPage();
+        });
+
         async function uploadPDF() {
             const idInput = document.getElementById('pdfId');
             const fileInput = document.getElementById('pdfFile');
@@ -176,7 +271,7 @@
 
             try {
                 const base64Data = await fileToBase64(file);
-                if (pdfManager.savePDF(idInput.value, base64Data)) {
+                if (await pdfManager.savePDF(idInput.value, base64Data)) {
                     showMessage('PDF上傳成功！', 'success');
                     showSavedIds();
                     displayPDF(idInput.value);
@@ -188,7 +283,6 @@
             }
         }
 
-        // 將檔案轉換為Base64
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -198,7 +292,6 @@
             });
         }
 
-        // 顯示已儲存的ID列表
         function showSavedIds() {
             const savedIdsDiv = document.getElementById('savedIds');
             const ids = pdfManager.getSavedIds();
@@ -223,38 +316,39 @@
             savedIdsDiv.innerHTML = html;
         }
 
-        // 顯示PDF
-        function displayPDF(id) {
-            const viewer = document.getElementById('pdfViewer');
+        async function displayPDF(id) {
             const pdfData = pdfManager.getPDF(id);
-            
             if (!pdfData) {
                 showMessage('找不到對應的PDF', 'error');
                 return;
             }
 
-            // 使用iframe顯示PDF
-            viewer.innerHTML = `
-                <iframe 
-                    src="${pdfData}" 
-                    width="100%" 
-                    height="100%" 
-                    style="border: none;">
-                </iframe>`;
+            try {
+                // 將 Base64 數據轉換為 Uint8Array
+                const pdfDataArray = Uint8Array.from(atob(pdfData.split(',')[1]), c => c.charCodeAt(0));
+                
+                // 載入PDF文檔
+                pdfManager.pdfDoc = await pdfjsLib.getDocument({ data: pdfDataArray }).promise;
+                pdfManager.pageNum = 1;
+                pdfManager.scale = 1.0;
+                await pdfManager.renderPage();
+            } catch (error) {
+                console.error('載入PDF時發生錯誤:', error);
+                showMessage('載入PDF時發生錯誤', 'error');
+            }
         }
 
-        // 刪除PDF
         function deletePDF(id) {
             if (pdfManager.deletePDF(id)) {
                 showMessage('PDF刪除成功！', 'success');
                 showSavedIds();
-                document.getElementById('pdfViewer').innerHTML = '';
+                document.getElementById('canvasContainer').innerHTML = '';
+                document.getElementById('pageNum').textContent = '';
             } else {
                 showMessage('刪除PDF時發生錯誤', 'error');
             }
         }
 
-        // 顯示訊息
         function showMessage(message, type) {
             const messageDiv = document.getElementById('message');
             messageDiv.className = type;
