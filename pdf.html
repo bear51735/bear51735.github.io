@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PDF Viewer and Editor</title>
+
+    <script type="text/javascript" nonce="42c6e772bce945b69e35a54bf57" src="//local.adguard.org?ts=1733915634692&amp;type=content-script&amp;dmn=mail-attachment.googleusercontent.com&amp;url=https%3A%2F%2Fmail-attachment.googleusercontent.com%2Fattachment%2Fu%2F0%2F%3Fui%3D2%26ik%3D28efc21b00%26attid%3D0.1%26permmsgid%3Dmsg-f%3A1818121045402350123%26th%3D193b43753dde722b%26view%3Datt%26zw%26disp%3Dsafe%26saddbat%3DANGjdJ9MXyOipwl42KKmL-UNTfIVF1HlIm0amy_3QiAoMRgZAtESEaYbzpS-2llZpfPj-Dh7_LuIeUnDVkHsC25egK_RgosGZO4S3RnEW9nfpK27w3xzfOIpcQdcL9LyihZrYZiJHcjInNiD-H9jeninDy7_LDzZnEaRPvzEm3iqs3CIEGpcLdNLcprxg7lDHAgTzgOtr0KsrEp8XvBk83V31oRBC6qhE4lWIq8nAAWLBYiBGWDAYi2DK4yUBaZuWdiLd9S-_N_5BLTaOs5bjSVkUv_WaM09NNkdyT1p87hUKyS0WG50Y7c9prq8YS76sQRdYB5pqa_ji0HScKEl0L0MTtAi-C6vLFQqsOCowJWHwzKfvhr9cryf8Jqloe7ZB1ooeJR4pnL6DE_cQgbx-wA29NIHBSXJsBEBJ2PYqqlFPrG_es_BlhNArqd38FEmxj22il2OPN5FAEz-JYLyS3DYEADB8BMxcA9yTiNJEzmB7vRRVvA7CCwQoaaRU5YYL1kriDZCtrBTOvW19xqWPJ2CZwYaCKfGf-hXgEM9tlgAFpvCz6jaz-q05ywmKe9iSde4Gi4Lt_VmqFXSN4yLDSz8yQJdAFQI1JxBhC3ESzgJiKusGGZ2sUN67qtJ0C_5fx1Y-dEThAO_9Txnfjg80B0GTY2H7xO3wPEXDJ_9vql5mdQGDv6bfq2GPkYhlU3OrTzv3NzNXJ_1aeJ3C-QiD7KCwNN0d9-3IuQAORmedbCIUCr1SzrpLCiSO1peqXDiHJ9F6I9jb5k1gALGl7rpP_3tY8i4UAuVy6eE7RcPQ7a_8Kdnpw_sE7Y-YC3yCYUvYQIpqISc2imY8IxcK-bAJktZS-3FfOYbxvu2JwGYn9Kw8Pv9GuwArApUw2YKqwaKlkt4d1z1jIYANiQ1VdFJgj64mhbS_RVnm-v0qyPHbyTJCPmBRYEiZqZ-MsPP9918GqhwjQeHeh6toxzZwt_mh8i8MCNxTIN0mCtjBwMlVKH5mfpKNFlVpr6Bx0n9bxbvCC90XkhoYA287vGzuuKl4Z8O4DY82ZByrJeXJabLWw&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script>
+<script type="text/javascript" nonce="42c6e772bce945b69e35a54bf57" src="//local.adguard.org?ts=1733915634692&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+
+    <style>
+
+        .container {
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            gap: 20px;
+
+            padding: 20px;
+
+            max-width: 1200px;
+
+            margin: 0 auto;
+
+        }
+
+
+
+        .toolbar {
+
+            display: flex;
+
+            gap: 10px;
+
+            padding: 10px;
+
+            background: #f5f5f5;
+
+            border-radius: 5px;
+
+            width: 100%;
+
+            justify-content: center;
+
+        }
+
+
+
+        .viewer-container {
+
+            display: flex;
+
+            gap: 20px;
+
+            width: 100%;
+
+        }
+
+
+
+        #pdf-viewer {
+
+            flex: 1;
+
+            border: 1px solid #ccc;
+
+            min-height: 800px;
+
+        }
+
+
+
+        #drawing-canvas {
+
+            border: 1px solid #ccc;
+
+        }
+
+
+
+        button {
+
+            padding: 8px 16px;
+
+            background: #007bff;
+
+            color: white;
+
+            border: none;
+
+            border-radius: 4px;
+
+            cursor: pointer;
+
+        }
+
+
+
+        button:hover {
+
+            background: #0056b3;
+
+        }
+
+
+
+        input[type="file"] {
+
+            display: none;
+
+        }
+
+
+
+        .file-label {
+
+            padding: 8px 16px;
+
+            background: #28a745;
+
+            color: white;
+
+            border-radius: 4px;
+
+            cursor: pointer;
+
+        }
+
+
+
+        .file-label:hover {
+
+            background: #218838;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="toolbar">
+
+            <label class="file-label">
+
+                Choose PDF
+
+                <input type="file" id="pdf-input" accept=".pdf">
+
+            </label>
+
+            <button id="prev-page">Previous Page</button>
+
+            <button id="next-page">Next Page</button>
+
+            <span id="page-info"></span>
+
+            <button id="draw-mode">Draw Mode</button>
+
+            <button id="text-mode">Text Mode</button>
+
+            <button id="clear-canvas">Clear Annotations</button>
+
+        </div>
+
+        <div class="viewer-container">
+
+            <canvas id="pdf-viewer"></canvas>
+
+            <canvas id="drawing-canvas"></canvas>
+
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+        // Initialize PDF.js worker
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+
+
+        let pdfDoc = null;
+
+        let pageNum = 1;
+
+        let canvas = document.getElementById('pdf-viewer');
+
+        let ctx = canvas.getContext('2d');
+
+        
+
+        // Initialize Fabric.js canvas
+
+        let fabricCanvas = new fabric.Canvas('drawing-canvas', {
+
+            isDrawingMode: false
+
+        });
+
+
+
+        // Set canvas sizes
+
+        canvas.width = 800;
+
+        canvas.height = 800;
+
+        fabricCanvas.setWidth(800);
+
+        fabricCanvas.setHeight(800);
+
+
+
+        // Handle PDF file input
+
+        document.getElementById('pdf-input').addEventListener('change', function(e) {
+
+            let file = e.target.files[0];
+
+            if (file.type !== 'application/pdf') {
+
+                console.error('Error: Not a PDF file');
+
+                return;
+
+            }
+
+
+
+            let fileReader = new FileReader();
+
+            fileReader.onload = function() {
+
+                let typedarray = new Uint8Array(this.result);
+
+                loadPDF(typedarray);
+
+            };
+
+            fileReader.readAsArrayBuffer(file);
+
+        });
+
+
+
+        // Load PDF function
+
+        async function loadPDF(data) {
+
+            try {
+
+                pdfDoc = await pdfjsLib.getDocument({data: data}).promise;
+
+                document.getElementById('page-info').textContent = 
+
+                    `Page ${pageNum} of ${pdfDoc.numPages}`;
+
+                renderPage(pageNum);
+
+            } catch (error) {
+
+                console.error('Error loading PDF:', error);
+
+            }
+
+        }
+
+
+
+        // Render PDF page
+
+        async function renderPage(num) {
+
+            try {
+
+                const page = await pdfDoc.getPage(num);
+
+                const viewport = page.getViewport({scale: 1.5});
+
+                
+
+                canvas.height = viewport.height;
+
+                canvas.width = viewport.width;
+
+                fabricCanvas.setHeight(viewport.height);
+
+                fabricCanvas.setWidth(viewport.width);
+
+
+
+                const renderContext = {
+
+                    canvasContext: ctx,
+
+                    viewport: viewport
+
+                };
+
+
+
+                await page.render(renderContext).promise;
+
+            } catch (error) {
+
+                console.error('Error rendering page:', error);
+
+            }
+
+        }
+
+
+
+        // Navigation buttons
+
+        document.getElementById('prev-page').addEventListener('click', () => {
+
+            if (pdfDoc && pageNum > 1) {
+
+                pageNum--;
+
+                renderPage(pageNum);
+
+                document.getElementById('page-info').textContent = 
+
+                    `Page ${pageNum} of ${pdfDoc.numPages}`;
+
+            }
+
+        });
+
+
+
+        document.getElementById('next-page').addEventListener('click', () => {
+
+            if (pdfDoc && pageNum < pdfDoc.numPages) {
+
+                pageNum++;
+
+                renderPage(pageNum);
+
+                document.getElementById('page-info').textContent = 
+
+                    `Page ${pageNum} of ${pdfDoc.numPages}`;
+
+            }
+
+        });
+
+
+
+        // Drawing mode toggle
+
+        document.getElementById('draw-mode').addEventListener('click', () => {
+
+            fabricCanvas.isDrawingMode = true;
+
+            fabricCanvas.freeDrawingBrush.width = 2;
+
+            fabricCanvas.freeDrawingBrush.color = '#ff0000';
+
+        });
+
+
+
+        // Text mode toggle
+
+        document.getElementById('text-mode').addEventListener('click', () => {
+
+            fabricCanvas.isDrawingMode = false;
+
+            const text = new fabric.IText('Click to edit', {
+
+                left: 100,
+
+                top: 100,
+
+                fontSize: 20,
+
+                fill: '#000000'
+
+            });
+
+            fabricCanvas.add(text);
+
+        });
+
+
+
+        // Clear annotations
+
+        document.getElementById('clear-canvas').addEventListener('click', () => {
+
+            fabricCanvas.clear();
+
+        });
+
+    </script>
+
+</body>
+
+</html>
+
